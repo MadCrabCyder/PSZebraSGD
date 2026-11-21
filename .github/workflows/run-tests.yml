@@ -1,0 +1,43 @@
+name: Run Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        shell: [pwsh, powershell]
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install Pester
+        shell: ${{ matrix.shell }}
+        run: |
+          $pester = Get-Module -ListAvailable -Name Pester |
+            Sort-Object Version -Descending |
+            Select-Object -First 1
+
+          if (-not $pester -or $pester.Version -lt [version]'5.0.0') {
+            Install-Module Pester -Scope CurrentUser -Force -SkipPublisherCheck -MinimumVersion 5.0.0
+          }
+
+      - name: Install InvokeBuild
+        shell: ${{ matrix.shell }}
+        run: |
+          $invokeBuild = Get-Module -ListAvailable -Name InvokeBuild  |
+            Sort-Object Version -Descending |
+            Select-Object -First 1
+
+          if (-not $invokeBuild -or $invokeBuild.Version -lt [version]'5.14.0') {
+            Install-Module InvokeBuild -Scope CurrentUser -Force -SkipPublisherCheck -MinimumVersion 5.14.0
+          }
+
+      - name: Run Pester tests
+        shell: ${{ matrix.shell }}
+        run: |
+          Invoke-Build Test
