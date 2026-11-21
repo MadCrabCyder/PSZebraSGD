@@ -33,6 +33,20 @@ task Build Clean, {
     Update-ModuleManifest -Path $OutManifest -FunctionsToExport $publicFunctions
 }
 
+task Analyze {
+    Import-Module PSScriptAnalyzer -ErrorAction Stop
+
+    $Findings = @(
+        Invoke-ScriptAnalyzer -Path $SrcDir -Recurse -Severity Warning, Error -ErrorAction Stop
+        # Invoke-Build task declarations intentionally use its DSL alias.
+        Invoke-ScriptAnalyzer -Path (Join-Path $BuildRoot 'module.build.ps1') -Severity Warning, Error -ExcludeRule PSAvoidUsingCmdletAliases -ErrorAction Stop
+    )
+    if ($Findings.Count -gt 0) {
+        $Findings
+        throw "PSScriptAnalyzer reported $($Findings.Count) warning or error findings."
+    }
+}
+
 task Test {
 
     Import-Module Pester -MinimumVersion 5.0 -ErrorAction Stop

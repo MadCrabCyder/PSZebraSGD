@@ -35,6 +35,8 @@ Install InvokeBuild and Pester 5 if needed, then run from the repository root:
 Invoke-Build Test
 ```
 
+With PSScriptAnalyzer installed, run `Invoke-Build Analyze` to check `src/` and the build script. Warnings and errors fail the task.
+
 ## Status and limitations
 
 The TCP client can truncate replies that arrive in multiple parts if the next part is delayed. A write request returning without error does **not** prove the printer accepted it. Avoid concurrent commands against the same printer until transport behaviour is verified.
