@@ -1,3 +1,4 @@
+
 name: Run Tests
 
 on:
@@ -6,38 +7,28 @@ on:
 
 jobs:
   test:
+    name: PowerShell ${{ matrix.version }}
     runs-on: windows-latest
+
     strategy:
+      fail-fast: false
       matrix:
-        shell: [pwsh, powershell]
+        include:
+          - version: '5.1'
+            executable: powershell.exe
+          - version: '7'
+            executable: pwsh.exe
 
     steps:
-      - name: Checkout repo
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Pester
-        shell: ${{ matrix.shell }}
-        run: |
-          $pester = Get-Module -ListAvailable -Name Pester |
-            Sort-Object Version -Descending |
-            Select-Object -First 1
-
-          if (-not $pester -or $pester.Version -lt [version]'5.0.0') {
-            Install-Module Pester -Scope CurrentUser -Force -SkipPublisherCheck -MinimumVersion 5.0.0
-          }
-
-      - name: Install InvokeBuild
-        shell: ${{ matrix.shell }}
-        run: |
-          $invokeBuild = Get-Module -ListAvailable -Name InvokeBuild  |
-            Sort-Object Version -Descending |
-            Select-Object -First 1
-
-          if (-not $invokeBuild -or $invokeBuild.Version -lt [version]'5.14.0') {
-            Install-Module InvokeBuild -Scope CurrentUser -Force -SkipPublisherCheck -MinimumVersion 5.14.0
-          }
-
       - name: Run Pester tests
-        shell: ${{ matrix.shell }}
+        shell: pwsh
+        env:
+          PS_EXECUTABLE: ${{ matrix.executable }}
         run: |
-          Invoke-Build Test
+          & $env:PS_EXECUTABLE -NoProfile -NonInteractive -File .github/scripts/run-tests.ps1
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
