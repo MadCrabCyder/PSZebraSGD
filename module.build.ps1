@@ -56,10 +56,15 @@ task Test {
     $config = New-PesterConfiguration
     $config.Run.Path = (Join-Path $SrcDir 'tests')
     $config.Run.Throw = $true
+    $config.Run.PassThru = $true
     $config.Output.Verbosity = 'Detailed'
     $config.TestResult.Enabled = $true
     $config.TestResult.OutputFormat = 'NUnitXml'
     $config.TestResult.OutputPath = $resultsPath
 
-    Invoke-Pester -Configuration $config
+    $results = Invoke-Pester -Configuration $config
+
+    if ($results.FailedCount -gt 0) {
+        throw "$($results.FailedCount) Pester test(s) failed."
+    }
 }

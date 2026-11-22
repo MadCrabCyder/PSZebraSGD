@@ -1,0 +1,48 @@
+name: Publish to PowerShell Gallery
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate version tag
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF_NAME -notmatch '^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$') {
+            throw "Invalid release tag '$env:GITHUB_REF_NAME'. Expected vMAJOR.MINOR.PATCH."
+          }
+          $version = $env:GITHUB_REF_NAME.Substring(1)
+          $null = [version]$version
+          "MODULE_VERSION=$version" >> $env:GITHUB_ENV
+
+      - name: Install InvokeBuild
+        shell: pwsh
+        run: Install-Module InvokeBuild -Scope CurrentUser -Force -MinimumVersion 5.14.0
+
+      - name: Build and validate package
+        shell: pwsh
+        run: |
+          Invoke-Build Build
+          $manifest = Join-Path $PWD 'out/PSZebraSGD/PSZebraSGD.psd1'
+          Update-ModuleManifest -Path $manifest -ModuleVersion $env:MODULE_VERSION
+          Test-ModuleManifest -Path $manifest -ErrorAction Stop | Out-Null
+
+      - name: Publish package
+        shell: pwsh
+        env:
+          PSGALLERY_API_KEY: ${{ secrets.PSGALLERY_API_KEY }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:PSGALLERY_API_KEY)) {
+            throw 'The PSGALLERY_API_KEY repository secret is not configured.'
+          }
+          Publish-Module -Path ./out/PSZebraSGD -Repository PSGallery -NuGetApiKey $env:PSGALLERY_API_KEY -ErrorAction Stop
