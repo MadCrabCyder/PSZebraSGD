@@ -61,6 +61,7 @@ function Invoke-ZebraTcpCommand {
         [switch]$NoResponse
     )
 
+    # Use a fresh connection for each command and bound the connect wait.
     $Client = [System.Net.Sockets.TcpClient]::new()
 
     try {
@@ -75,10 +76,13 @@ function Invoke-ZebraTcpCommand {
         $Payload = [System.Text.Encoding]::ASCII.GetBytes($Command + "`r`n")
         $Stream.Write($Payload, 0, $Payload.Length)
 
+        # A write-only command returns without implying that the printer accepted it.
         if ($NoResponse) {
             return
         }
 
+        # With no universal reply terminator, collect bytes until close or a quiet gap
+        # after the first byte; the stopwatch still bounds the entire response wait.
         $ResponseTimeoutMilliseconds = 250
         $ResponseTimer = [System.Diagnostics.Stopwatch]::StartNew()
         $Buffer = [byte[]]::new(4096)
@@ -116,6 +120,7 @@ function Invoke-ZebraTcpCommand {
                         throw 'Timed out waiting for the printer response.'
                     }
 
+                    # Only a quiet-gap timeout after receiving data completes the reply.
                     break
                 }
 
@@ -128,9 +133,11 @@ function Invoke-ZebraTcpCommand {
                         throw 'The printer closed the connection without a response.'
                     }
 
+                    # A peer close ends a response only after at least one byte arrived.
                     break
                 }
 
+                # Enforce the response cap before adding another chunk to memory.
                 if ($Response.Length + $BytesRead -gt $MaxResponseBytes) {
                     throw 'Response exceeds MaxResponseBytes.'
                 }
@@ -139,9 +146,11 @@ function Invoke-ZebraTcpCommand {
 
             return [System.Text.Encoding]::UTF8.GetString($Response.ToArray()).Trim()
         } finally {
+            # Release the response buffer even when reading or decoding fails.
             $Response.Dispose()
         }
     } finally {
+        # Always close the socket, including write-only and error paths.
         $Client.Dispose()
     }
 }
