@@ -1,9 +1,39 @@
 BeforeAll {
     . "$PSScriptRoot/../private/Invoke-ZebraTcpCommand.ps1"
+    . "$PSScriptRoot/../private/ConvertTo-ZebraPropertyName.ps1"
     . "$PSScriptRoot/../public/Invoke-ZebraSGD.ps1"
     . "$PSScriptRoot/../public/Get-ZebraConfiguration.ps1"
     . "$PSScriptRoot/../public/Set-ZebraConfiguration.ps1"
     . "$PSScriptRoot/../public/Get-ZebraPrinter.ps1"
+}
+
+Describe 'ConvertTo-ZebraPropertyName' {
+    It 'converts the final dot-separated segment to PascalCase' -ForEach @(
+        @{ Name = 'interface.network.active.mac_addr'; Expected = 'MacAddr' }
+        @{ Name = 'device.product_name'; Expected = 'ProductName' }
+    ) {
+        ConvertTo-ZebraPropertyName -Name $Name | Should -BeExactly $Expected
+    }
+
+    It 'uses the known property alias <Name>' -ForEach @(
+        @{ Name = 'appl.name'; Expected = 'Application' }
+        @{ Name = 'appl.link_os_version'; Expected = 'Firmware' }
+        @{ Name = 'odometer.total_label_count'; Expected = 'LabelsPrinted' }
+        @{ Name = 'wlan.mac_addr'; Expected = 'WlanMacAddr' }
+    ) {
+        ConvertTo-ZebraPropertyName -Name $Name | Should -BeExactly $Expected
+    }
+
+    It 'matches aliases without regard to case' {
+        ConvertTo-ZebraPropertyName -Name 'WLAN.MAC_ADDR' | Should -BeExactly 'WlanMacAddr'
+    }
+
+    It 'rejects null or empty input' -ForEach @(
+        @{ Name = $null }
+        @{ Name = '' }
+    ) {
+        { ConvertTo-ZebraPropertyName -Name $Name } | Should -Throw
+    }
 }
 
 Describe 'Invoke-ZebraSGD' {
@@ -116,7 +146,17 @@ Describe 'Get-ZebraPrinter' {
         $Printer.ComputerName | Should -BeExactly 'localhost'
         $Printer.ProductName | Should -BeExactly 'ZD421'
         $Printer.UniqueId | Should -BeExactly 'unit-123'
-        $Printer.PSObject.Properties.Name | Should -Contain 'FriendlyName'
+        $Printer.PSObject.Properties.Name | Should -Be @(
+            'ComputerName'
+            'ProductName'
+            'UniqueId'
+            'FriendlyName'
+            'Application'
+            'Firmware'
+            'ActiveNetwork'
+            'MacAddr'
+            'LabelsPrinted'
+        )
         $Printer.FriendlyName | Should -BeNullOrEmpty
         $Printer.Application | Should -BeExactly 'Example application'
         $Printer.Firmware | Should -BeExactly '1.2'
