@@ -4,8 +4,8 @@ function Get-ZebraPrinter {
         Reads identification and firmware information from a Zebra printer.
 
     .DESCRIPTION
-        Queries SGD variables in sequence. If a query throws, the command warns,
-        leaves that property null and continues with the remaining variables.
+        Reads the standard printer fields through Get-ZebraConfiguration. If a query throws,
+        the command warns, leaves that property null and continues with the remaining variables.
 
     .PARAMETER ComputerName
         Printer hostname or IP address.
@@ -42,31 +42,5 @@ function Get-ZebraPrinter {
         'odometer.total_label_count'
     )
 
-    $Values = @{}
-    foreach ($Field in $Fields) {
-        $ReadParameters = @{
-            ComputerName = $ComputerName
-            Operation    = 'Get'
-            Name         = $Field
-            Port         = $Port
-        }
-
-        try {
-            $Values[$Field] = Invoke-ZebraSGD @ReadParameters
-        } catch {
-            Write-Warning "${Field}: $_"
-            $Values[$Field] = $null
-        }
-    }
-
-    $Properties = [ordered]@{
-        ComputerName = $ComputerName
-    }
-
-    foreach ($Field in $Fields) {
-        $PropertyName = ConvertTo-ZebraPropertyName -Name $Field
-        $Properties[$PropertyName] = $Values[$Field]
-    }
-
-    [PSCustomObject]$Properties
+    Get-ZebraConfiguration -ComputerName $ComputerName -Name $Fields -Port $Port
 }
