@@ -235,6 +235,76 @@ Describe 'Configuration commands' {
         }
     }
 
+    It 'sets ordered configuration values sequentially using the selected port' {
+        $Configuration = [ordered]@{
+            'ezpl.media_type'  = 'gap/notch'
+            'ezpl.tear_off'    = '2'
+            'zpl.print_width'  = '800'
+        }
+
+        Set-ZebraConfiguration -ComputerName localhost -Configuration $Configuration -Port 9200 -Confirm:$false
+
+        $script:RequestedCommands | Should -Be @(
+            '! U1 setvar "ezpl.media_type" "gap/notch"'
+            '! U1 setvar "ezpl.tear_off" "2"'
+            '! U1 setvar "zpl.print_width" "800"'
+        )
+        Should -Invoke Invoke-ZebraTcpCommand -Exactly -Times 3 -ParameterFilter {
+            $ComputerName -eq 'localhost' -and $Port -eq 9200 -and $NoResponse
+        }
+    }
+
+    It 'accepts an ordinary hashtable configuration' {
+        $Configuration = @{
+            'device.friendly_name' = 'Warehouse 01'
+            'appl.name'            = 'Example App'
+        }
+
+        Set-ZebraConfiguration -ComputerName localhost -Configuration $Configuration -Confirm:$false
+
+        $script:RequestedCommands | Should -HaveCount 2
+        $script:RequestedCommands | Should -Contain '! U1 setvar "device.friendly_name" "Warehouse 01"'
+        $script:RequestedCommands | Should -Contain '! U1 setvar "appl.name" "Example App"'
+        Should -Invoke Invoke-ZebraTcpCommand -Exactly -Times 2 -ParameterFilter { $NoResponse }
+    }
+
+    It 'does not send any configuration values under WhatIf' {
+        $Configuration = [ordered]@{
+            'device.friendly_name' = 'Warehouse 01'
+            'appl.name'            = 'Example App'
+        }
+
+        Set-ZebraConfiguration -ComputerName localhost -Configuration $Configuration -WhatIf
+
+        $script:RequestedCommands | Should -BeNullOrEmpty
+        Should -Invoke Invoke-ZebraTcpCommand -Exactly -Times 0
+    }
+
+    It 'rejects an empty configuration before sending commands' {
+        { Set-ZebraConfiguration -ComputerName localhost -Configuration ([ordered]@{}) } | Should -Throw
+
+        Should -Invoke Invoke-ZebraTcpCommand -Exactly -Times 0
+    }
+
+    It 'propagates a write failure and does not send later configuration values' {
+        Mock Invoke-ZebraTcpCommand {
+            $script:RequestedCommands.Add($Command)
+            throw 'Fixture write failure'
+        } -ParameterFilter {
+            $Command -ceq '! U1 setvar "device.friendly_name" "First"'
+        }
+        $Configuration = [ordered]@{
+            'device.friendly_name' = 'First'
+            'appl.name'            = 'Second'
+        }
+
+        { Set-ZebraConfiguration -ComputerName localhost -Configuration $Configuration -Confirm:$false } |
+            Should -Throw
+
+        $script:RequestedCommands | Should -Be @('! U1 setvar "device.friendly_name" "First"')
+        Should -Invoke Invoke-ZebraTcpCommand -Exactly -Times 1
+    }
+
     It 'does not send a configuration update under WhatIf' {
         Set-ZebraConfiguration -ComputerName localhost -Name device.friendly_name -Value 'West Desk' -WhatIf
         Should -Invoke Invoke-ZebraTcpCommand -Exactly -Times 0

@@ -4,7 +4,7 @@
 |---|---|
 | `Get-ZebraPrinter` | Queries a few common identification variables. |
 | `Get-ZebraConfiguration` | Reads one or more SGD variables into one object with converted property names. |
-| `Set-ZebraConfiguration` | Writes one SGD variable (supports `-WhatIf`). |
+| `Set-ZebraConfiguration` | Writes one or more SGD variables (supports per-setting `-WhatIf` and confirmation). |
 | `Invoke-ZebraSGD` | Generic get/set/do transport wrapper. |
 
 ## Examples
@@ -20,8 +20,16 @@ $SGDVariables = @(
 )
 Get-ZebraConfiguration -ComputerName 192.0.2.10 -Name $SGDVariables
 Set-ZebraConfiguration -ComputerName 192.0.2.10 -Name device.friendly_name -Value 'Warehouse 01' -WhatIf
+$Configuration = [ordered]@{
+    'ezpl.media_type' = 'gap/notch'
+    'ezpl.tear_off'   = '2'
+    'media.printmode' = 'T'
+}
+Set-ZebraConfiguration -ComputerName 192.0.2.10 -Configuration $Configuration -WhatIf
 ```
 
 `Get-ZebraConfiguration` returns one object with `ComputerName` and one property per requested variable. Property names are generated from the SGD names, with aliases for known names such as `appl.name` → `Application`.
+
+`Set-ZebraConfiguration` accepts either one `-Name`/`-Value` pair or a `-Configuration` hashtable. Entries are sent sequentially in dictionary enumeration order; use `[ordered]@{}` when insertion order matters. Each setting has its own confirmation and `-WhatIf` check. The batch is not transactional, so earlier settings may already be applied if a later write fails.
 
 **Caution:** SGD `setvar` and `do` commands can alter device operation. Verify the command's permissions and model support before applying it. `Invoke-ZebraSGD` does not yet validate against the catalogue.
