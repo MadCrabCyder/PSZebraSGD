@@ -5,8 +5,8 @@
  Author = 'Mad Crab Cyder'
  CompanyName = 'Mad Crab Cyder Productions'
  Description = @'
-A PowerShell module for managing and automating Zebra printers using SGD (Set-Get-Do) commands over TCP port 9100. Query
-printer information and device status, retrieve and modify configuration settings, execute printer commands, and streamline
+A PowerShell module for managing and automating Zebra printers using SGD (Set-Get-Do) commands over TCP port 9100.
+Query printer information and device status, retrieve and modify configuration settings, execute printer commands, and streamline
 printer administration, monitoring, and inventory management.
 '@
  PowerShellVersion = '5.1'
